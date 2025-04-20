@@ -119,6 +119,7 @@ impl Engine {
         }
 
         self.context.instruction_pointer += 1;
+        self.commands_executed += 1;
         true
     }
 
