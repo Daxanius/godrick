@@ -1,6 +1,13 @@
 [package]
 name = "godrick"
+description = "An interpreter making brainfuck useful."
+authors = ["Daxanius"]
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+parse-frequency = "1.1.0"
+clap = { version = "4.5.37", features = ["derive"] }
+libloading = "0.8.6"
+parse-size = "1.1.0"
+colored = "3.0.0"
