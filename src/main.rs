@@ -41,7 +41,7 @@ fn run() -> Result<()> {
     let mut engine = godrick::Engine::new(program, args.memory as usize, args.frequency);
     engine.run();
 
-    println!("Program finished.");
+    println!("\nProgram finished.");
     println!("Program size: {} bytes", engine.get_program().len());
     println!("Memory size: {} bytes", args.memory);
     println!("Clock frequency: {}", args.frequency);
