@@ -154,9 +154,12 @@ checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
 name = "parse-frequency"
-version = "1.1.0"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdfa24d9ddcc029a5e88d0af9f4f7d4d821a5c0656009b54d75dbcb551c24189"
+checksum = "d5cbbd703072e8ffb8163194bf995215b6b107a591e5d57d634f34107603152a"
+dependencies = [
+ "clap",
+]
 
 [[package]]
 name = "parse-size"
