@@ -2,6 +2,7 @@ use clap::Parser;
 use parse_frequency::Frequency;
 use std::fs;
 use std::io::{self, Read};
+use std::time::Instant;
 
 use godrick::{Error, LimbSpec, Program, Result};
 
@@ -43,9 +44,16 @@ fn run() -> Result<()> {
         args.memory.try_into().expect("Invalid memory size"),
         args.frequency,
     );
+
+    let start = Instant::now();
     engine.run();
+    let elapsed = start.elapsed();
+
+    let secs = elapsed.as_secs_f64();
+    let ips = engine.get_commands_executed() as f64 / secs;
 
     println!("\nProgram finished.");
+    println!("Execution time: {elapsed:.6?}");
     println!("Program size: {} bytes", engine.get_program().len());
     println!("Memory size: {} bytes", args.memory);
     println!("Clock frequency: {}", args.frequency);
@@ -57,6 +65,7 @@ fn run() -> Result<()> {
     println!("Pointer: {}", engine.get_context().pointer);
     // println!("Stack size: {}", engine.get_context().stack.len());
     println!("Commands executed: {}", engine.get_commands_executed());
+    println!("Instructions/sec: {:.2}", ips);
 
     Ok(())
 }
