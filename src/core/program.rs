@@ -12,7 +12,6 @@ pub struct Program {
 }
 
 impl Program {
-    #[must_use]
     pub fn new(code: &str) -> Result<Self> {
         Self {
             instructions: Vec::new(),
@@ -20,6 +19,7 @@ impl Program {
         }
         .parse(code)
         .optimize()
+        .resolve_clears()
         .resolve_loops()
     }
 
@@ -62,11 +62,9 @@ impl Program {
             output.push('\n');
         }
 
-        if surrounding {
-            if let Some(next) = lines.get(line_num + 1) {
-                output.push_str(next);
-                output.push('\n');
-            }
+        if surrounding && let Some(next) = lines.get(line_num + 1) {
+            output.push_str(next);
+            output.push('\n');
         }
 
         Some(output.trim_end().to_string())
@@ -138,6 +136,40 @@ impl Program {
         }
 
         Ok(self)
+    }
+
+    fn resolve_clears(mut self) -> Self {
+        let mut optimized = Vec::with_capacity(self.instructions.len());
+        let mut i = 0;
+
+        while i < self.instructions.len() {
+            // Check for [-] or [+]
+            if i + 2 < self.instructions.len() {
+                let a = &self.instructions[i];
+                let b = &self.instructions[i + 1];
+                let c = &self.instructions[i + 2];
+
+                let is_clear = matches!(a.opcode, Opcode::LoopStart(_))
+                    && matches!(b.opcode, Opcode::AddValue(1) | Opcode::SubValue(1))
+                    && matches!(c.opcode, Opcode::LoopEnd(_));
+
+                if is_clear {
+                    optimized.push(Instruction {
+                        opcode: Opcode::ClearCell,
+                        position: a.position.clone(), // point to '['
+                    });
+
+                    i += 3;
+                    continue;
+                }
+            }
+
+            optimized.push(self.instructions[i].clone());
+            i += 1;
+        }
+
+        self.instructions = optimized;
+        self
     }
 
     fn optimize(mut self) -> Self {
@@ -230,7 +262,7 @@ impl Program {
             '>' => Some(Opcode::MovePtr(1)),
             '<' => Some(Opcode::MovePtr(-1)),
             '+' => Some(Opcode::AddValue(1)),
-            '-' => Some(Opcode::AddValue(-1)),
+            '-' => Some(Opcode::SubValue(1)),
             '.' => Some(Opcode::Output),
             ',' => Some(Opcode::Input),
             '[' => Some(Opcode::LoopStart(0)),

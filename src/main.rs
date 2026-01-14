@@ -28,7 +28,7 @@ struct Args {
 fn run() -> Result<()> {
     let args = Args::parse();
 
-    let code = if let Some(file) = args.file {
+    let code: String = if let Some(file) = args.file {
         fs::read_to_string(file).map_err(Error::Io)?
     } else {
         let mut buffer = String::new();
@@ -38,7 +38,11 @@ fn run() -> Result<()> {
 
     let program = Program::new(&code)?;
 
-    let mut engine = godrick::Engine::new(program, args.memory as usize, args.frequency);
+    let mut engine = godrick::Engine::new(
+        program,
+        args.memory.try_into().expect("Invalid memory size"),
+        args.frequency,
+    );
     engine.run();
 
     println!("\nProgram finished.");
@@ -51,7 +55,7 @@ fn run() -> Result<()> {
         engine.get_context().instruction_pointer
     );
     println!("Pointer: {}", engine.get_context().pointer);
-    println!("Stack size: {}", engine.get_context().stack.len());
+    // println!("Stack size: {}", engine.get_context().stack.len());
     println!("Commands executed: {}", engine.get_commands_executed());
 
     Ok(())

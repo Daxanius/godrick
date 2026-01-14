@@ -1,12 +1,7 @@
-use std::thread;
-
-use parse_frequency::Frequency;
-use std::time::Instant;
-
 use super::{Instruction, Limb, Opcode, Program};
+use parse_frequency::Frequency;
 
 pub struct ExecutionContext {
-    pub stack: Vec<usize>,
     pub instruction_pointer: usize,
     pub pointer: usize,
     pub memory: Vec<u8>,
@@ -21,12 +16,13 @@ pub struct Engine {
 }
 
 impl Engine {
+    #[must_use]
     pub fn new(program: Program, memory: usize, frequency: Frequency) -> Self {
         Engine {
             limbs: Vec::new(),
             frequency,
             context: ExecutionContext {
-                stack: Vec::new(),
+                // stack: Vec::with_capacity(stack),
                 instruction_pointer: 0,
                 pointer: 0,
                 memory: vec![0; memory],
@@ -37,10 +33,10 @@ impl Engine {
     }
 
     pub fn run(&mut self) {
-        let target_dt = self.frequency.as_duration();
+        // let target_dt = self.frequency.as_duration();
 
         loop {
-            let start = Instant::now();
+            // let start = Instant::now();
             if self.context.instruction_pointer >= self.program.len() {
                 break;
             }
@@ -49,14 +45,15 @@ impl Engine {
                 break;
             }
 
-            let elapsed = start.elapsed();
+            // let elapsed = start.elapsed();
 
-            if elapsed < target_dt {
-                thread::sleep(target_dt - elapsed);
-            }
+            // if elapsed < target_dt {
+            //     thread::sleep(target_dt - elapsed);
+            // }
         }
     }
 
+    #[must_use]
     pub fn get_commands_executed(&self) -> u64 {
         self.commands_executed
     }
@@ -72,22 +69,19 @@ impl Engine {
     }
 
     fn execute_instruction(&mut self) -> bool {
-        let opcode = match self.get_instruction() {
-            Some(instr) => &instr.opcode,
-            None => return false,
-        };
+        let opcode = &self.program.get_instructions()[self.context.instruction_pointer].opcode;
 
         match opcode {
             Opcode::AddValue(n) => {
-                let value = self.context.memory[self.context.pointer] as i16 + *n;
-                self.context.memory[self.context.pointer] = value as u8;
+                self.context.memory[self.context.pointer] =
+                    self.context.memory[self.context.pointer].wrapping_add(*n);
+            }
+            Opcode::SubValue(n) => {
+                self.context.memory[self.context.pointer] =
+                    self.context.memory[self.context.pointer].wrapping_sub(*n);
             }
             Opcode::MovePtr(n) => {
-                let new_pointer = self.context.pointer as isize + *n;
-                if new_pointer < 0 || new_pointer >= self.context.memory.len() as isize {
-                    return false; // Pointer out of bounds
-                }
-                self.context.pointer = new_pointer as usize;
+                self.context.pointer = self.context.pointer.wrapping_add_signed(*n);
             }
             Opcode::Output => {
                 let value = self.context.memory[self.context.pointer];
@@ -102,19 +96,18 @@ impl Engine {
                     self.context.memory[self.context.pointer] = first_char as u8;
                 }
             }
-            Opcode::LoopStart(end) => {
+            Opcode::LoopStart(jump_to) => {
                 if self.context.memory[self.context.pointer] == 0 {
-                    self.context.instruction_pointer = *end;
-                } else {
-                    self.context.stack.push(*end);
+                    self.context.instruction_pointer = *jump_to;
                 }
             }
-            Opcode::LoopEnd(start) => {
+            Opcode::LoopEnd(jump_to) => {
                 if self.context.memory[self.context.pointer] != 0 {
-                    self.context.instruction_pointer = *start;
-                } else {
-                    self.context.stack.pop();
+                    self.context.instruction_pointer = *jump_to;
                 }
+            }
+            Opcode::ClearCell => {
+                self.context.memory[self.context.pointer] = 0;
             }
         }
 
@@ -125,9 +118,7 @@ impl Engine {
 
     #[must_use]
     pub fn get_instruction(&self) -> Option<&Instruction> {
-        self.program
-            .get_instructions()
-            .get(self.context.instruction_pointer)
+        self.program.at(self.context.instruction_pointer)
     }
 
     pub fn graft(&mut self, limb: Limb) {
@@ -141,7 +132,6 @@ impl Engine {
 
     pub fn reset_context(&mut self) {
         self.context = ExecutionContext {
-            stack: Vec::new(),
             instruction_pointer: 0,
             pointer: 0,
             memory: vec![0; self.context.memory.len()],
@@ -152,6 +142,7 @@ impl Engine {
         self.context = context;
     }
 
+    #[must_use]
     pub fn get_program(&self) -> &Program {
         &self.program
     }
