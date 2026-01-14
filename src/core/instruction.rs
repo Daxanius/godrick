@@ -20,12 +20,17 @@ impl Display for Position {
 
 #[derive(Debug, Clone)]
 pub enum Opcode {
-    MovePtr(isize),
+    Reverse(usize),
+    Forward(usize),
     AddValue(u8),
     SubValue(u8),
     Output,
     Input,
     LoopStart(usize),
     LoopEnd(usize),
+    FastZeroLeft(usize),
+    FastZeroRight(usize),
     ClearCell,
+    MoveLeft { left: usize, factor: u8 },
+    MoveRight { right: usize, factor: u8 },
 }

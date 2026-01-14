@@ -20,6 +20,10 @@ impl Program {
         .parse(code)
         .optimize()
         .resolve_clears()
+        // .resolve_move_left()
+        .resolve_move_right()
+        .resolve_fz_right()
+        .resolve_fz_left()
         .resolve_loops()
     }
 
@@ -142,6 +146,199 @@ impl Program {
         Ok(self)
     }
 
+    fn resolve_move_right(mut self) -> Self {
+        let mut optimized = Vec::with_capacity(self.instructions.len());
+        let mut i = 0;
+
+        while i < self.instructions.len() {
+            // Look for loop: [SubValue(1), MovePtr(r), AddValue(n), MovePtr(-r)]
+            if i + 5 < self.instructions.len()
+                && let Opcode::LoopStart(_) = self.instructions[i].opcode
+            {
+                let a = &self.instructions[i + 1];
+                let b = &self.instructions[i + 2];
+                let c = &self.instructions[i + 3];
+                let d = &self.instructions[i + 4];
+                let e = &self.instructions[i + 5];
+
+                if let (
+                    Opcode::SubValue(1),
+                    Opcode::Forward(r),
+                    Opcode::AddValue(n),
+                    Opcode::Reverse(l),
+                    Opcode::LoopEnd(_),
+                ) = (&a.opcode, &b.opcode, &c.opcode, &d.opcode, &e.opcode)
+                    && l == r
+                {
+                    optimized.push(Instruction {
+                        opcode: Opcode::MoveRight {
+                            right: *r,
+                            factor: *n,
+                        },
+                        position: self.instructions[i].position.clone(),
+                    });
+
+                    i += 6; // skip entire loop
+                    continue;
+                }
+
+                if let (
+                    Opcode::Forward(r),
+                    Opcode::AddValue(n),
+                    Opcode::Reverse(l),
+                    Opcode::SubValue(1),
+                    Opcode::LoopEnd(_),
+                ) = (&a.opcode, &b.opcode, &c.opcode, &d.opcode, &e.opcode)
+                    && l == r
+                {
+                    optimized.push(Instruction {
+                        opcode: Opcode::MoveRight {
+                            right: *r,
+                            factor: *n,
+                        },
+                        position: self.instructions[i].position.clone(),
+                    });
+
+                    i += 6; // skip entire loop
+                    continue;
+                }
+            }
+
+            optimized.push(self.instructions[i].clone());
+            i += 1;
+        }
+
+        self.instructions = optimized;
+        self
+    }
+
+    fn resolve_fz_right(mut self) -> Self {
+        let mut optimized = Vec::with_capacity(self.instructions.len());
+        let mut i = 0;
+
+        while i < self.instructions.len() {
+            // Look for loop: [SubValue(1), MovePtr(r), AddValue(n), MovePtr(-r)]
+            if i + 3 < self.instructions.len()
+                && let Opcode::LoopStart(_) = self.instructions[i].opcode
+            {
+                let a = &self.instructions[i + 1];
+                let b = &self.instructions[i + 2];
+
+                if let (Opcode::Forward(n), Opcode::LoopEnd(_)) = (&a.opcode, &b.opcode) {
+                    optimized.push(Instruction {
+                        opcode: Opcode::FastZeroRight(*n),
+                        position: self.instructions[i].position.clone(),
+                    });
+
+                    i += 3; // skip entire loop
+                    continue;
+                }
+            }
+
+            optimized.push(self.instructions[i].clone());
+            i += 1;
+        }
+
+        self.instructions = optimized;
+        self
+    }
+
+    fn resolve_fz_left(mut self) -> Self {
+        let mut optimized = Vec::with_capacity(self.instructions.len());
+        let mut i = 0;
+
+        while i < self.instructions.len() {
+            // Look for loop: [SubValue(1), MovePtr(r), AddValue(n), MovePtr(-r)]
+            if i + 3 < self.instructions.len()
+                && let Opcode::LoopStart(_) = self.instructions[i].opcode
+            {
+                let a = &self.instructions[i + 1];
+                let b = &self.instructions[i + 2];
+
+                if let (Opcode::Reverse(n), Opcode::LoopEnd(_)) = (&a.opcode, &b.opcode) {
+                    optimized.push(Instruction {
+                        opcode: Opcode::FastZeroLeft(*n),
+                        position: self.instructions[i].position.clone(),
+                    });
+
+                    i += 3; // skip entire loop
+                    continue;
+                }
+            }
+
+            optimized.push(self.instructions[i].clone());
+            i += 1;
+        }
+
+        self.instructions = optimized;
+        self
+    }
+
+    fn resolve_move_left(mut self) -> Self {
+        let mut optimized = Vec::with_capacity(self.instructions.len());
+        let mut i = 0;
+
+        while i < self.instructions.len() {
+            if i + 5 < self.instructions.len()
+                && let Opcode::LoopStart(_) = self.instructions[i].opcode
+            {
+                let a = &self.instructions[i + 1];
+                let b = &self.instructions[i + 2];
+                let c = &self.instructions[i + 3];
+                let d = &self.instructions[i + 4];
+                let e = &self.instructions[i + 5];
+
+                if let (
+                    Opcode::SubValue(1),
+                    Opcode::Reverse(l),
+                    Opcode::AddValue(n),
+                    Opcode::Forward(r),
+                    Opcode::LoopEnd(_),
+                ) = (&a.opcode, &b.opcode, &c.opcode, &d.opcode, &e.opcode)
+                    && l == r
+                {
+                    optimized.push(Instruction {
+                        opcode: Opcode::MoveLeft {
+                            left: *l,
+                            factor: *n,
+                        },
+                        position: self.instructions[i].position.clone(),
+                    });
+
+                    i += 6; // skip entire loop
+                    continue;
+                }
+
+                if let (
+                    Opcode::Reverse(l),
+                    Opcode::AddValue(n),
+                    Opcode::Forward(r),
+                    Opcode::SubValue(1),
+                    Opcode::LoopEnd(_),
+                ) = (&a.opcode, &b.opcode, &c.opcode, &d.opcode, &e.opcode)
+                    && l == r
+                {
+                    optimized.push(Instruction {
+                        opcode: Opcode::MoveLeft {
+                            left: *l,
+                            factor: *n,
+                        },
+                        position: self.instructions[i].position.clone(),
+                    });
+
+                    i += 6; // skip entire loop
+                    continue;
+                }
+            }
+
+            optimized.push(self.instructions[i].clone());
+            i += 1;
+        }
+
+        self.instructions = optimized;
+        self
+    }
+
     fn resolve_clears(mut self) -> Self {
         let mut optimized = Vec::with_capacity(self.instructions.len());
         let mut i = 0;
@@ -154,7 +351,7 @@ impl Program {
                 let c = &self.instructions[i + 2];
 
                 let is_clear = matches!(a.opcode, Opcode::LoopStart(_))
-                    && matches!(b.opcode, Opcode::AddValue(1) | Opcode::SubValue(1))
+                    && matches!(b.opcode, Opcode::AddValue(_) | Opcode::SubValue(_))
                     && matches!(c.opcode, Opcode::LoopEnd(_));
 
                 if is_clear {
@@ -183,15 +380,29 @@ impl Program {
         for instruction in self.instructions {
             match (&instruction.opcode, &accumulator) {
                 (
-                    Opcode::MovePtr(n),
+                    Opcode::Forward(n),
                     Some(Instruction {
-                        opcode: Opcode::MovePtr(acc_n),
+                        opcode: Opcode::Forward(acc_n),
                         position,
                     }),
                 ) => {
                     // Accumulate the pointer movement
                     let new = Instruction {
-                        opcode: Opcode::MovePtr(acc_n + n),
+                        opcode: Opcode::Forward(acc_n + n),
+                        position: position.clone(),
+                    };
+                    accumulator = Some(new);
+                }
+                (
+                    Opcode::Reverse(n),
+                    Some(Instruction {
+                        opcode: Opcode::Reverse(acc_n),
+                        position,
+                    }),
+                ) => {
+                    // Accumulate the pointer movement
+                    let new = Instruction {
+                        opcode: Opcode::Reverse(acc_n + n),
                         position: position.clone(),
                     };
                     accumulator = Some(new);
@@ -210,7 +421,27 @@ impl Program {
                     };
                     accumulator = Some(new);
                 }
-                (Opcode::MovePtr(_) | Opcode::AddValue(_), _) => {
+                (
+                    Opcode::SubValue(n),
+                    Some(Instruction {
+                        opcode: Opcode::SubValue(acc_n),
+                        position,
+                    }),
+                ) => {
+                    // Accumulate the value addition
+                    let new = Instruction {
+                        opcode: Opcode::SubValue(acc_n + n),
+                        position: position.clone(),
+                    };
+                    accumulator = Some(new);
+                }
+                (
+                    Opcode::Forward(_)
+                    | Opcode::Reverse(_)
+                    | Opcode::AddValue(_)
+                    | Opcode::SubValue(_),
+                    _,
+                ) => {
                     // Start new accumulation
                     if let Some(prev) = accumulator.take() {
                         optimized.push(prev);
@@ -263,8 +494,8 @@ impl Program {
 
     fn decode_character(c: char) -> Option<Opcode> {
         match c {
-            '>' => Some(Opcode::MovePtr(1)),
-            '<' => Some(Opcode::MovePtr(-1)),
+            '>' => Some(Opcode::Forward(1)),
+            '<' => Some(Opcode::Reverse(1)),
             '+' => Some(Opcode::AddValue(1)),
             '-' => Some(Opcode::SubValue(1)),
             '.' => Some(Opcode::Output),

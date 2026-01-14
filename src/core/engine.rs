@@ -4,7 +4,7 @@ use parse_frequency::Frequency;
 pub struct ExecutionContext {
     pub instruction_pointer: usize,
     pub pointer: usize,
-    pub memory: Vec<u8>,
+    pub memory: Box<[u8]>,
 }
 
 pub struct Engine {
@@ -25,7 +25,7 @@ impl Engine {
                 // stack: Vec::with_capacity(stack),
                 instruction_pointer: 0,
                 pointer: 0,
-                memory: vec![0; memory],
+                memory: vec![0; memory].into(),
             },
             program,
             commands_executed: 0,
@@ -69,19 +69,22 @@ impl Engine {
     }
 
     fn execute_instruction(&mut self) -> bool {
-        let opcode = &self.program.get_instructions()[self.context.instruction_pointer].opcode;
+        let instruction = &self.program.get_instructions()[self.context.instruction_pointer];
 
-        match opcode {
+        match instruction.opcode {
             Opcode::AddValue(n) => {
                 self.context.memory[self.context.pointer] =
-                    self.context.memory[self.context.pointer].wrapping_add(*n);
+                    self.context.memory[self.context.pointer].wrapping_add(n);
             }
             Opcode::SubValue(n) => {
                 self.context.memory[self.context.pointer] =
-                    self.context.memory[self.context.pointer].wrapping_sub(*n);
+                    self.context.memory[self.context.pointer].wrapping_sub(n);
             }
-            Opcode::MovePtr(n) => {
-                self.context.pointer = self.context.pointer.wrapping_add_signed(*n);
+            Opcode::Forward(n) => {
+                self.context.pointer = self.context.pointer.wrapping_add(n);
+            }
+            Opcode::Reverse(n) => {
+                self.context.pointer = self.context.pointer.wrapping_sub(n);
             }
             Opcode::Output => {
                 let value = self.context.memory[self.context.pointer];
@@ -98,16 +101,41 @@ impl Engine {
             }
             Opcode::LoopStart(jump_to) => {
                 if self.context.memory[self.context.pointer] == 0 {
-                    self.context.instruction_pointer = *jump_to;
+                    self.context.instruction_pointer = jump_to;
                 }
             }
             Opcode::LoopEnd(jump_to) => {
                 if self.context.memory[self.context.pointer] != 0 {
-                    self.context.instruction_pointer = *jump_to;
+                    self.context.instruction_pointer = jump_to;
                 }
             }
             Opcode::ClearCell => {
                 self.context.memory[self.context.pointer] = 0;
+            }
+            Opcode::MoveRight { right, factor } => {
+                let src_val = self.context.memory[self.context.pointer];
+                let dest_index = self.context.pointer + right;
+                self.context.memory[dest_index] =
+                    self.context.memory[dest_index].wrapping_add(src_val.wrapping_mul(factor));
+                self.context.memory[self.context.pointer] = 0;
+            }
+            Opcode::MoveLeft { left, factor } => {
+                let src_val = self.context.memory[self.context.pointer];
+                // println!("{left}, {}: {}", self.context.pointer, instruction.position);
+                let dest_index = self.context.pointer - left;
+                self.context.memory[dest_index] =
+                    self.context.memory[dest_index].wrapping_add(src_val.wrapping_mul(factor));
+                self.context.memory[self.context.pointer] = 0;
+            }
+            Opcode::FastZeroRight(n) => {
+                while self.context.memory[self.context.pointer] != 0 {
+                    self.context.pointer += n;
+                }
+            }
+            Opcode::FastZeroLeft(n) => {
+                while self.context.memory[self.context.pointer] != 0 {
+                    self.context.pointer -= n;
+                }
             }
         }
 
@@ -135,7 +163,7 @@ impl Engine {
         self.context = ExecutionContext {
             instruction_pointer: 0,
             pointer: 0,
-            memory: vec![0; self.context.memory.len()],
+            memory: vec![0; self.context.memory.len()].into(),
         };
     }
 
