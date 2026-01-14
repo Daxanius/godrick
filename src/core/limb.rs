@@ -74,10 +74,12 @@ impl Limb {
         })
     }
 
+    #[inline]
     pub fn init(&self) {
         unsafe { (self.f_init)() }
     }
 
+    #[inline]
     pub fn tick(&self, memory: &mut [u8], ptr: usize) {
         unsafe { (self.f_tick)(memory.as_mut_ptr(), memory.len(), ptr) }
     }

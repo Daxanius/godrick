@@ -116,6 +116,7 @@ impl Engine {
         true
     }
 
+    #[inline]
     #[must_use]
     pub fn get_instruction(&self) -> Option<&Instruction> {
         self.program.at(self.context.instruction_pointer)
@@ -142,11 +143,13 @@ impl Engine {
         self.context = context;
     }
 
+    #[inline]
     #[must_use]
     pub fn get_program(&self) -> &Program {
         &self.program
     }
 
+    #[inline]
     #[must_use]
     pub fn get_context(&self) -> &ExecutionContext {
         &self.context

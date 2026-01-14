@@ -23,21 +23,25 @@ impl Program {
         .resolve_loops()
     }
 
+    #[inline]
     #[must_use]
     pub fn get_instructions(&self) -> &[Instruction] {
         &self.instructions
     }
 
+    #[inline]
     #[must_use]
     pub fn len(&self) -> usize {
         self.instructions.len()
     }
 
+    #[inline]
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.instructions.is_empty()
     }
 
+    #[inline]
     #[must_use]
     pub fn at(&self, index: usize) -> Option<&Instruction> {
         self.instructions.get(index)
